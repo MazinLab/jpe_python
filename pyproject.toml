@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jpe_python"
+dynamic = ["version"]
+description = "Convenience package for the Rust -> Python FFI for low-level JPE stage/actuator control"
+authors = [
+  {name = "Josh Breckenridge", email = "breckeja@ucsb.edu"},
+]
+requires-python = ">=3.7"
+
+[tool.setuptools]
+packages = ["jpe_python"]
