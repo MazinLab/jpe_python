@@ -78,21 +78,24 @@ class ControllerContext:
     Context that contains commands to administer the controller
     """
     def __init__(self, inner) -> None:
-        self.inner: jpe_python_ffi.BaseController = inner
+        self.inner  = inner
 
     @classmethod
     def with_network(cls, ip: str):
         """
         Constructor returning context using network transport
         """
-        return ControllerContext(jpe_python_ffi.BaseControllerBuilder().with_network(ip).build())
+        return ControllerContext(jpe_python_ffi.BaseContextBuilder().with_network(ip).build())
 
     @classmethod
-    def with_serial(cls, baud: int, com: str | None = None, serial: str | None = None):
+    def with_serial(cls, com: str, baud: int = 115200):
         """
         Constructor returning context using serial transport
         """
-        return ControllerContext(jpe_python_ffi.BaseControllerBuilder().with_serial(com, serial, baud).build())
+        ctx = jpe_python_ffi.BaseContextBuilder().with_serial(com)
+        if baud != 115200:
+            ctx = ctx.baud(baud)
+        return ControllerContext(ctx.build())
 
     def get_fw_version(self) -> str:
         """
