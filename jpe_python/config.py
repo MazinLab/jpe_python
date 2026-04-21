@@ -5,14 +5,13 @@ Types and functions related to API configuration parameters
 from dataclasses import dataclass
 from enum import Enum
 
-from .wrapper import Direction, ModuleChannel, Slot, SetpointPosMode
+from .wrapper import Direction, ModuleChannel, SetpointPosMode, Slot
 
 
 class UcsbStageModel(Enum):
     X = "CRD1-RLS"
     Y = "CRD1-RLS"
     Z = "CBS10-RLS"
-
 
 
 @dataclass
@@ -29,7 +28,7 @@ class BasedriveStageCfg:
 
 
 @dataclass
-class ServodriveStageCfg
+class ServodriveStageCfg:
     position: float
     setpoint_mode: SetpointPosMode
 
