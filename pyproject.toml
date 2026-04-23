@@ -9,7 +9,7 @@ description = "Convenience package for the Rust -> Python FFI for low-level JPE 
 authors = [
   {name = "Josh Breckenridge", email = "breckeja@ucsb.edu"},
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 
 [tool.setuptools]
 packages = ["jpe_python"]
