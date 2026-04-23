@@ -14,6 +14,7 @@ from .wrapper import (
     ControllerContext,
     ControllerOpMode,
     Direction,
+    ModuleChannel,
     SetpointPosMode,
     Slot,
 )
@@ -29,9 +30,9 @@ def get_pos_all_mean(
     avg_type: PositionMeanType = "arithmetic",
 ) -> NDArray:
 
-    # Preallocate array
+    # Get samples
     ret = get_pos_all_samples(ctx, stages, rsm_slot, n_samples)
-    # Averaging code
+
     match avg_type:
         case "arithmetic":
             ret = trim_mean(ret, 0, axis=1)
@@ -64,6 +65,51 @@ def get_pos_all_samples(
         success_cnt += 1
     # Truncate any empty rows
     return ret[:success_cnt]
+
+
+def get_pos_samples(
+    ctx: ControllerContext,
+    stage: UcsbStageModel,
+    rsm_channel: ModuleChannel,
+    rsm_slot: Slot,
+    n_samples: int,
+) -> NDArray:
+    # Preallocate array
+    ret = np.zeros(n_samples, dtype=np.float64)
+    success_cnt = 0
+
+    # Fallibly poll the compressor for position data. Will not catch fatal errors.
+    for it in range(n_samples):
+        try:
+            ret[it] = ctx.get_current_position(rsm_slot, rsm_channel, stage.value)
+        except ValueError as e:
+            print(f"Value error on poll #{it + 1}: {e}. Continuing...")
+            continue
+        success_cnt += 1
+    # Truncate any empty rows
+    return ret[:success_cnt]
+
+
+def get_pos_mean(
+    ctx: ControllerContext,
+    stage: UcsbStageModel,
+    rsm_slot: Slot,
+    rsm_channel: ModuleChannel,
+    n_samples: int,
+    avg_type: PositionMeanType = "arithmetic",
+) -> NDArray:
+
+    # Get samples
+    ret = get_pos_samples(ctx, stage, rsm_channel, rsm_slot, n_samples)
+
+    match avg_type:
+        case "arithmetic":
+            ret = trim_mean(ret, 0, axis=1)
+        case "trimmed":
+            ret = trim_mean(ret, 0.1, axis=1)
+
+    # Cast needed here because trim_mean has poor return type hinting
+    return cast(NDArray, ret)
 
 
 def move_stage_n_rsm(
