@@ -35,9 +35,9 @@ def get_pos_all_mean(
 
     match avg_type:
         case "arithmetic":
-            ret = trim_mean(ret, 0, axis=1)
+            ret = trim_mean(ret, 0, axis=0)
         case "trimmed":
-            ret = trim_mean(ret, 0.1, axis=1)
+            ret = trim_mean(ret, 0.1, axis=0)
 
     # Cast needed here because trim_mean has poor return type hinting
     return cast(NDArray, ret)
@@ -185,3 +185,39 @@ def move_stage_n_rsm(
             stage_cfg.drive_factor,
         )
     return positions
+
+
+def reset_stages_center_samples(
+    ctx: ControllerContext, poll_rate: int = 500, raw_pos: bool = False
+) -> NDArray | None:
+    """
+    Moves all stages the their respective centers in servodrive mode.
+
+
+    Args:
+        `poll_rate`: How often to poll the controller for status updates on the control loop.
+        `raw_pos`: Toggles whether to return the raw final position samples or their averages (see Returns section)
+        step_delay: The number of seconds to wait between actuations.
+        reset: It True, the stage will to return to its initial position.
+
+    Returns:
+        If `raw_pos` is `True`:
+            A tuple containing three lists where each list constains the raw position samples for the given stage.
+            E.g. (stage1_pos_samples, stage2_pos_samples, stage3_pos_samples)
+        Otherwise:
+            A tuple with the arithmetic mean of the position for each stage.
+            E.g. (stage1_pos_mean, stage2_pos_mean, stage3_pos_mean)
+    """
+    # 1. Enable servodrive mode
+    # 2. Command ALL stages to move to the center of their travel using
+    # absolute positioning
+    # 3. Poll the control loop until it either finishes or errors
+    #   - First poll will be to validate that the control loop is enabled and all passed setpoints were valid
+    #   - Poll rate passed by caller in milliseconds
+    #   - Print the progress to stdout
+    #   - Format:
+    #   - First Poll: CONTROL LOOP ENABLED/DISABLED | ALL SETPOINTS VALID or STAGE[1,2,3] SETPOINT INVALID | RUNNING...
+    #       - If all setpoints are invalid, return early with the None
+    #   - Happy Path: Iteration: 0 | Stage 1 Error: 10um | Stage 2 Error: -0.004um | Stage 3 Error: 3um | RUNNING... or COMPLETE
+    #   - Error Path: Iteration: 12 | Exception: a nasty, dirty error occurred
+    return None
