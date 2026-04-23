@@ -97,19 +97,17 @@ def get_pos_mean(
     rsm_channel: ModuleChannel,
     n_samples: int,
     avg_type: PositionMeanType = "arithmetic",
-) -> NDArray:
+) -> float:
 
     # Get samples
     ret = get_pos_samples(ctx, stage, rsm_channel, rsm_slot, n_samples)
 
     match avg_type:
         case "arithmetic":
-            ret = trim_mean(ret, 0, axis=1)
+            ret = trim_mean(ret, 0)
         case "trimmed":
-            ret = trim_mean(ret, 0.1, axis=1)
-
-    # Cast needed here because trim_mean has poor return type hinting
-    return cast(NDArray, ret)
+            ret = trim_mean(ret, 0.1)
+    return ret
 
 
 def move_stage_n_rsm(
