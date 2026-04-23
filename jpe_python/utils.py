@@ -161,15 +161,10 @@ def move_stage_n_rsm(
             stage_cfg.drive_factor,
         )
         # Take position measurements and average
-        pos = [
-            ctx.get_current_position(
-                rsm_slot, stage_cfg.rsm_channel, stage_cfg.stage.value
-            )
-            for _ in range(pos_avg)
-        ]
-        positions.append(
-            ((x + 1) * stage_cfg.num_steps, float(np.average(np.array(pos))))
+        avg_pos = get_pos_mean(
+            ctx, stage_cfg.stage, rsm_slot, stage_cfg.rsm_channel, pos_avg
         )
+        positions.append(((x + 1) * stage_cfg.num_steps, avg_pos))
         time.sleep(step_delay)
 
     # Reset the stage back to start
