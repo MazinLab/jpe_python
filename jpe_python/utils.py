@@ -9,7 +9,12 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy.stats import trim_mean
 
-from .config import BasedriveStageCfg, ServodriveCfg, UcsbStageModel
+from .config import (
+    BasedriveStageCfg,
+    ServodriveCfg,
+    ServodriveControlLoopStatus,
+    UcsbStageModel,
+)
 from .wrapper import (
     ControllerContext,
     ControllerOpMode,
@@ -187,30 +192,83 @@ def move_stage_n_rsm(
     return positions
 
 
+def get_servodrive_ctrl_loop_status(
+    ctx: ControllerContext,
+) -> ServodriveControlLoopStatus:
+    """
+     Gets the current status of the Servodrive control loop and parses the raw response into
+    a ServodriveControlLoopStatus type for better ergonomics.
+
+     Raises:
+         `ValueError` if the response from the controller is malformed.
+    """
+    ctx_resp = ctx.get_servodrive_status()
+    ret = ServodriveControlLoopStatus()
+
+    # Validate the boolean response values. NOTE: No need to validate
+    # postion error values, they are validate by the API.
+    bool_params = [
+        "loop enabled",
+        "loop finished",
+        "invalid_sp1",
+        "invalid_sp2",
+        "invalid_sp3",
+    ]
+    for idx, param in enumerate(bool_params):
+        if ctx_resp[idx] != 0 or ctx_resp[idx] != 1:
+            raise ValueError(
+                f"response value for '{param}' invalid. Got {ctx_resp[idx]}, expected bool"
+            )
+
+    # Populate params after validation
+    ret.loop_enabled = bool(ctx_resp[0])
+    ret.loop_finished = bool(ctx_resp[1])
+    ret.stage1_pos_valid = bool(ctx_resp[2])
+    ret.stage2_pos_valid = bool(ctx_resp[3])
+    ret.stage3_pos_valid = bool(ctx_resp[4])
+    ret.stage1_delta = ctx_resp[5]
+    ret.stage2_delta = ctx_resp[6]
+    ret.stage3_delta = ctx_resp[7]
+
+    return ret
+
+
 def reset_stages_center_samples(
-    ctx: ControllerContext, poll_rate: int = 500, raw_pos: bool = False
+    ctx: ControllerContext,
+    servo_cfg: ServodriveCfg,
+    poll_rate: int = 500,
 ) -> NDArray | None:
     """
-    Moves all stages the their respective centers in servodrive mode.
-
+    Moves all stages the their respective centers in servodrive mode and returns
+    the final position of each stage.
 
     Args:
         `poll_rate`: How often to poll the controller for status updates on the control loop.
-        `raw_pos`: Toggles whether to return the raw final position samples or their averages (see Returns section)
-        step_delay: The number of seconds to wait between actuations.
-        reset: It True, the stage will to return to its initial position.
 
     Returns:
-        If `raw_pos` is `True`:
-            A tuple containing three lists where each list constains the raw position samples for the given stage.
-            E.g. (stage1_pos_samples, stage2_pos_samples, stage3_pos_samples)
-        Otherwise:
-            A tuple with the arithmetic mean of the position for each stage.
-            E.g. (stage1_pos_mean, stage2_pos_mean, stage3_pos_mean)
+
     """
     # 1. Enable servodrive mode
+    ctx.enable_servodrive(
+        servo_cfg.stage1_cfg.name.value,
+        servo_cfg.stage1_cfg.init_step_frequency,
+        servo_cfg.stage2_cfg.name.value,
+        servo_cfg.stage2_cfg.init_step_frequency,
+        servo_cfg.stage3_cfg.name.value,
+        servo_cfg.stage3_cfg.init_step_frequency,
+        servo_cfg.temp_K,
+        servo_cfg.drive_factor,
+    )
     # 2. Command ALL stages to move to the center of their travel using
     # absolute positioning
+    ctx.go_to_setpoint(
+        0.00,
+        SetpointPosMode().abs,
+        0.00,
+        SetpointPosMode().abs,
+        0.00,
+        SetpointPosMode().abs,
+    )
     # 3. Poll the control loop until it either finishes or errors
     #   - First poll will be to validate that the control loop is enabled and all passed setpoints were valid
     #   - Poll rate passed by caller in milliseconds
@@ -218,6 +276,7 @@ def reset_stages_center_samples(
     #   - Format:
     #   - First Poll: CONTROL LOOP ENABLED/DISABLED | ALL SETPOINTS VALID or STAGE[1,2,3] SETPOINT INVALID | RUNNING...
     #       - If all setpoints are invalid, return early with the None
+
     #   - Happy Path: Iteration: 0 | Stage 1 Error: 10um | Stage 2 Error: -0.004um | Stage 3 Error: 3um | RUNNING... or COMPLETE
     #   - Error Path: Iteration: 12 | Exception: a nasty, dirty error occurred
     return None
